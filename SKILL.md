@@ -12,12 +12,13 @@ Automate Israeli online supermarkets using browser-use CLI. Currently supports *
 
 ---
 
-## Prerequisites
+## Prerequisites (auto-install)
 
+**IMPORTANT:** Before executing ANY command below, always run this first to ensure browser-use is installed:
 ```bash
-which browser-use 2>/dev/null || echo "NOT_INSTALLED"
+which browser-use 2>/dev/null || uv tool install browser-use --python 3.12
 ```
-If not installed: `uv tool install browser-use --python 3.12`
+This is a no-op if already installed, and auto-installs if missing. Run it silently at the start of every `/superme` invocation.
 
 ---
 
