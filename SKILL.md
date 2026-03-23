@@ -313,14 +313,18 @@ browser-use --session superme eval "document.querySelector('button[type=submit][
 
 **Steps:**
 
-1. Navigate to the search URL:
+1. Search via the catalog API (no browser needed):
 ```bash
-browser-use --session superme open "https://www.rami-levy.co.il/he/online/search?q=PRODUCT_URL_ENCODED"
+curl -s 'https://www.rami-levy.co.il/api/catalog' \
+  -H 'Content-Type: application/json' \
+  -H "ecomtoken: $(cat /tmp/superme_rami_token.txt)" \
+  -d '{"q":"PRODUCT_HERE","store":"331"}'
 ```
+Response: `{"total": N, "data": [...products...]}`
 
-2. Wait 5 seconds for results to load.
+2. If the API fails, fall back to browser: navigate to search URL and extract from Vue component.
 
-3. Extract search results from the `online-search` Vue component:
+3. Extract search results from API response or the `online-search` Vue component:
 ```javascript
 var app = document.querySelector('#__nuxt').__vue__;
 function findComp(vm, name, depth) {
@@ -504,38 +508,29 @@ browser-use --session superme eval "var Cart = angular.element(document.body).in
 
 1. Load `/tmp/superme_last_search.json` to get the product by index number.
 
-2. Must be on a Rami Levy page. Navigate to search page if not:
+2. Add to cart via curl API (no browser needed):
 ```bash
-browser-use --session superme open "https://www.rami-levy.co.il/he/online/search?q=PRODUCT_NAME"
+curl -s 'https://www.rami-levy.co.il/api/v2/cart' \
+  -H 'accept: application/json' \
+  -H 'content-type: application/json;charset=UTF-8' \
+  -H "ecomtoken: $(cat /tmp/superme_rami_token.txt)" \
+  -H 'locale: he' \
+  --data-raw '{"store":"STORE_ID","isClub":0,"supplyAt":"TOMORROW_ISO","items":{"PRODUCT_ID":"1.00"},"meta":null}'
 ```
 
-3. Add to cart via the `$api.cart.addLineToCart` method. The function expects:
-   - `storeId` — from Vuex `cart/getStoreId` or default 331
-   - `isClub` — 0
-   - `items` — array of `{C: productId, Quantity: qty}`
-   - `cancelToken` — null
-   - `supplyAt` — null
+**IMPORTANT — Cart API format:**
+- `items` is an **object** `{productId: "quantity"}` — NOT an array. Keys are product IDs (as strings), values are quantities (as strings like "1.00").
+- `supplyAt` should be tomorrow's date in ISO format: `"2026-03-24T00:00:00.000Z"`
+- `store` is the store ID as string (default "331")
+- Only `ecomtoken` header is needed (not the Bearer authorization)
 
-```javascript
-var app = document.querySelector('#__nuxt').__vue__;
-var storeId = app.$store.getters['cart/getStoreId'] || 331;
-app.$api.cart.addLineToCart(storeId, 0, [{C: PRODUCT_ID, Quantity: 1}], null, null, null);
-```
+3. The response contains the full cart: `items[]` array with all products, prices, and totals.
 
-**Alternative (more reliable):** Find and click the add button in the UI:
-```
-Look for button with aria-label containing "הוסף" and the product name in the page state, then click it.
-```
+4. Parse the response to get item count and total price.
 
-4. Wait 3 seconds for the cart to sync.
+5. Confirm to user: "Added [product name] to your Rami Levy cart. [N] items, total: [price]."
 
-5. Verify by checking cart state:
-```javascript
-var cart = app.$store.getters['cart/getCart'];
-JSON.stringify({items: cart.items.length, price: cart.price});
-```
-
-6. Confirm to user: "Added [product name] to your Rami Levy cart. [N] items, total: [price]."
+**Alternative (UI click):** If the API fails, navigate to search, find the button with `aria-label` containing "הוסף" + product name, and click it.
 
 ---
 
@@ -806,8 +801,8 @@ Rami Levy runs on **Nuxt.js** (Vue SSR). Auth via JWT tokens with `ecomtoken` he
 
 | Endpoint | Method | Auth | Notes |
 |----------|--------|------|-------|
-| `/api/v2/cart` | POST | ecomtoken | Add to cart. Body: `{store, isClub, items: {productId: qty}}` |
-| `/api/v2/catalog/search` | GET | ecomtoken | Search. Params: `store`, `q`, `from`, `size` |
+| `/api/v2/cart` | POST | ecomtoken | Add to cart. Body: `{store: "331", isClub: 0, supplyAt: "ISO_DATE", items: {"productId": "qty"}, meta: null}`. Items is an object, not array. Returns full cart. |
+| `/api/catalog` | POST | ecomtoken | Search products. Body: `{q: "search term", store: "331"}`. Optional: `aggs: 1`. Returns `{total, data: [...products...]}` |
 
 #### Nuxt/Vue Access
 
