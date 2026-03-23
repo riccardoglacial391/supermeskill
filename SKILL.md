@@ -623,6 +623,61 @@ browser-use --session superme eval "var Cart = angular.element(document.body).in
 
 ---
 
+#### Rami Levy magicorder (to cart)
+
+**Steps:**
+
+1. Get shopping lists (which contain past order product IDs):
+```bash
+curl -s 'https://www-api.rami-levy.co.il/api/v2/site/clubs/shop-lists' \
+  -H 'accept: application/json' \
+  -H "ecomtoken: $(cat /tmp/superme_rami_token.txt)" \
+  -H 'locale: he'
+```
+Response: `{data: [{id, name, items: [productId1, productId2, ...], items_count}]}`
+
+2. Collect all product IDs from the lists, deduplicate.
+
+3. Resolve product IDs to full product data:
+```bash
+curl -s 'https://www.rami-levy.co.il/api/items' \
+  -H 'accept: application/json' \
+  -H 'content-type: application/json;charset=UTF-8' \
+  -H "ecomtoken: $(cat /tmp/superme_rami_token.txt)" \
+  -H 'locale: he' \
+  --data-raw '{"ids":"ID1,ID2,ID3,...","type":"id"}'
+```
+Response: `{data: [...full product objects...]}`
+
+4. Present to user sorted by frequency, English transliteration.
+
+5. Create a "Superme Magicorder" shopping list with all products:
+```bash
+curl -s 'https://www-api.rami-levy.co.il/api/v2/site/clubs/shop-lists' \
+  -X POST \
+  -H 'accept: application/json' \
+  -H 'content-type: application/json;charset=UTF-8' \
+  -H "ecomtoken: $(cat /tmp/superme_rami_token.txt)" \
+  -H 'locale: he' \
+  --data-raw '{"name":"Superme Magicorder DD-MM-YYYY","items":[{"item_id":ID1,"quantity":1,"barcode":BARCODE1},{"item_id":ID2,"quantity":1,"barcode":BARCODE2},...]}'
+```
+
+6. **Also add all products to cart** in one API call for immediate use:
+```bash
+curl -s 'https://www.rami-levy.co.il/api/v2/cart' \
+  -H 'accept: application/json' \
+  -H 'content-type: application/json;charset=UTF-8' \
+  -H "ecomtoken: $(cat /tmp/superme_rami_token.txt)" \
+  -H 'locale: he' \
+  --data-raw '{"store":"331","isClub":0,"supplyAt":"TOMORROW_ISO","items":{"ID1":"1.00","ID2":"1.00",...},"meta":null}'
+```
+
+7. Parse response to get item count and total.
+
+8. Confirm to user: "Created 'Superme Magicorder DD-MM-YYYY' list with [N] products and added them to cart. Total: [price]. View at https://www.rami-levy.co.il/he/online/cart"
+
+---
+
 ### `/superme lists`
 
 View all Superme wishlists. **Shufersal only.**
@@ -803,6 +858,9 @@ Rami Levy runs on **Nuxt.js** (Vue SSR). Auth via JWT tokens with `ecomtoken` he
 |----------|--------|------|-------|
 | `/api/v2/cart` | POST | ecomtoken | Add to cart. Body: `{store: "331", isClub: 0, supplyAt: "ISO_DATE", items: {"productId": "qty"}, meta: null}`. Items is an object, not array. Returns full cart. |
 | `/api/catalog` | POST | ecomtoken | Search products. Body: `{q: "search term", store: "331"}`. Optional: `aggs: 1`. Returns `{total, data: [...products...]}` |
+| `/api/items` | POST | ecomtoken | Resolve product IDs to full data. Body: `{ids: "id1,id2,id3", type: "id"}`. Returns `{data: [...products...]}` |
+| `www-api.rami-levy.co.il/api/v2/site/clubs/shop-lists` | GET | ecomtoken | Get user's shopping lists. Returns `{data: [{id, name, items: [productIds], items_count}]}` |
+| `www-api.rami-levy.co.il/api/v2/site/clubs/shop-lists` | POST | ecomtoken | Create a shopping list. Body: `{name: "list name", items: [{item_id, quantity, barcode}]}`. Returns created list. |
 
 #### Nuxt/Vue Access
 
