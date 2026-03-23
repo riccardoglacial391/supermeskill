@@ -24,18 +24,24 @@ This is a no-op if already installed, and auto-installs if missing. Run it silen
 
 ## Vendor Detection
 
-The skill supports multiple vendors. The active vendor is stored in `/tmp/superme_vendor.txt` (set during login). All commands read this file to determine which vendor flow to use.
+The skill works against **one vendor at a time**. The active vendor is stored in `/tmp/superme_vendor.txt` (set during login). Login always switches the active vendor.
 
 **Vendor identifiers:**
 - `shufersal` — Shufersal Online (shufersal.co.il)
 - `keshet` — Keshet Teamim (keshet-teamim.co.il)
 - `rami` — Rami Levy (rami-levy.co.il)
 
+**IMPORTANT — Announce the active vendor:**
+- After every login, announce: "Switched to **[Vendor Name]**. All commands now target [Vendor Name]."
+- At the start of every command (search, add, magicorder, etc.), read the vendor file and display which vendor is active: "**[Vendor Name]** >"
+- If no vendor is set, tell the user to run `/superme login` first.
+
 When a command needs to branch by vendor, read the vendor file:
 ```bash
 cat /tmp/superme_vendor.txt 2>/dev/null || echo "none"
 ```
-If `none`, tell the user to run `/superme login` first.
+
+Logging in to a different vendor switches the active vendor. Previous vendor sessions (tokens/cookies) are preserved in their separate temp files, so logging back in may reuse them if still valid.
 
 ---
 
