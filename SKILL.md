@@ -1,6 +1,6 @@
 ---
 name: superme
-description: "Online supermarket automation. Login, search products, add to cart/wishlists, magicorder from past orders. Supports Shufersal and Keshet Teamim. Usage: /superme login <vendor>, /superme search <product>, /superme add <#>, /superme magicorder, /superme lists, /superme cart, /superme help"
+description: "Online supermarket automation. Login, search products, add to cart/wishlists, magicorder from past orders. Supports Shufersal, Keshet Teamim, and Rami Levy. Usage: /superme login <vendor>, /superme search <product>, /superme add <#>, /superme magicorder, /superme lists, /superme cart, /superme help"
 risk: medium
 source: local
 date_added: "2026-03-21"
@@ -29,6 +29,7 @@ The skill supports multiple vendors. The active vendor is stored in `/tmp/superm
 **Vendor identifiers:**
 - `shufersal` — Shufersal Online (shufersal.co.il)
 - `keshet` — Keshet Teamim (keshet-teamim.co.il)
+- `rami` — Rami Levy (rami-levy.co.il)
 
 When a command needs to branch by vendor, read the vendor file:
 ```bash
@@ -45,6 +46,10 @@ The skill tracks state across commands within a conversation using temp files:
 ### Shared (all vendors)
 - `/tmp/superme_vendor.txt` — active vendor identifier
 - `/tmp/superme_last_search.json` — last search results with product IDs for `/superme add`
+
+### Rami Levy-specific
+- `/tmp/superme_rami_token.txt` — JWT token (header: `ecomtoken`)
+- `/tmp/superme_rami_store_id.txt` — store ID (default: 331)
 
 ### Shufersal-specific
 - `/tmp/superme_cookies.json` — exported browser cookies
@@ -204,6 +209,59 @@ echo "keshet" > /tmp/superme_vendor.txt
 
 ---
 
+#### `/superme login rami`
+
+Log in to Rami Levy via email + SMS OTP code.
+
+**Steps:**
+
+1. Ask the user for their email if not provided inline. Parse from args if given as `/superme login rami user@email.com`.
+
+2. Open the homepage:
+```bash
+browser-use --headed --session superme open "https://www.rami-levy.co.il/"
+```
+
+3. Wait for load, then click the login button:
+```bash
+browser-use --session superme click LOGIN_BTN_INDEX
+```
+Look for `<div id=login-user role=button aria-label=התחברות />` in the state.
+
+4. Wait 3 seconds for the login dialog. Fill the email field:
+```bash
+browser-use --session superme eval "var input = document.getElementById('email'); input.value = 'EMAIL'; input.dispatchEvent(new Event('input', {bubbles: true}));"
+```
+
+5. Click "Send verification code" button (look for `aria-label=שלח קוד אימות` in state).
+
+6. **Ask the user for the SMS code.** Tell them: "SMS code sent to your phone. Please enter the code here."
+
+7. Once the user provides the code, fill the OTP input:
+```bash
+browser-use --session superme eval "var input = document.getElementById('otp_code'); input.value = 'CODE'; input.dispatchEvent(new Event('input', {bubbles: true}));"
+```
+
+8. Click the verify button (look for `aria-label=אמת קוד` in state).
+
+9. Wait 5 seconds, then extract auth data:
+```bash
+browser-use --session superme eval "var store = document.querySelector('#__nuxt').__vue__.$store.state; JSON.stringify({token: store.authuser.user.token, user_id: store.authuser.user.user_id, store_id: store.authuser.user.store_id, name: store.authuser.user.first_name})"
+```
+
+10. Save session data:
+```python
+# Save token to /tmp/superme_rami_token.txt
+# Save store_id to /tmp/superme_rami_store_id.txt
+```
+
+11. Save vendor:
+```bash
+echo "rami" > /tmp/superme_vendor.txt
+```
+
+---
+
 ### `/superme search <product>`
 
 Search for a product. Must be logged in first. Behavior depends on active vendor.
@@ -242,6 +300,49 @@ browser-use --session superme eval "document.querySelector('button[type=submit][
 7. Filter and prioritize exact matches over loosely related items.
 
 8. Recommend the best value option and tell the user: "Use `/superme add #` to add to your list."
+
+---
+
+#### Rami Levy search
+
+**Steps:**
+
+1. Navigate to the search URL:
+```bash
+browser-use --session superme open "https://www.rami-levy.co.il/he/online/search?q=PRODUCT_URL_ENCODED"
+```
+
+2. Wait 5 seconds for results to load.
+
+3. Extract search results from the `online-search` Vue component:
+```javascript
+var app = document.querySelector('#__nuxt').__vue__;
+function findComp(vm, name, depth) {
+  if(depth > 10) return null;
+  if(vm.$options.name === name) return vm;
+  for(var c of (vm.$children || [])) { var f = findComp(c, name, depth+1); if(f) return f; }
+  return null;
+}
+var search = findComp(app, 'online-search', 0);
+var results = search.$data.results;
+```
+If the component is not found (async loading), wait and retry. Each result has:
+- `id` — product ID (use for cart)
+- `name` — Hebrew product name
+- `barcode` — barcode number
+- `price.price` — current price
+- `price.oldPrice` — previous price (if on sale)
+- `brand` — brand ID
+- `size_unit_he` — size/weight in Hebrew
+
+4. **Save search results** to `/tmp/superme_last_search.json`. Format:
+```json
+[{"index": 1, "name": "Product Name", "id": 4372, "barcode": 80176800, "price": "19.90", "oldPrice": "31.50", "vendor": "rami"}, ...]
+```
+
+5. Present results using **English only**. Columns: #, Product Name, Size, Price, Old Price, Notes.
+
+6. Recommend the best value and tell user: "Use `/superme add #` to add to your cart."
 
 ---
 
@@ -388,6 +489,47 @@ browser-use --session superme eval "var Cart = angular.element(document.body).in
 ```
 
 7. Confirm to user: "Added [product name] to your Keshet Teamim cart. [N] items, total: [price]."
+
+---
+
+#### Rami Levy add (to cart)
+
+**Steps:**
+
+1. Load `/tmp/superme_last_search.json` to get the product by index number.
+
+2. Must be on a Rami Levy page. Navigate to search page if not:
+```bash
+browser-use --session superme open "https://www.rami-levy.co.il/he/online/search?q=PRODUCT_NAME"
+```
+
+3. Add to cart via the `$api.cart.addLineToCart` method. The function expects:
+   - `storeId` — from Vuex `cart/getStoreId` or default 331
+   - `isClub` — 0
+   - `items` — array of `{C: productId, Quantity: qty}`
+   - `cancelToken` — null
+   - `supplyAt` — null
+
+```javascript
+var app = document.querySelector('#__nuxt').__vue__;
+var storeId = app.$store.getters['cart/getStoreId'] || 331;
+app.$api.cart.addLineToCart(storeId, 0, [{C: PRODUCT_ID, Quantity: 1}], null, null, null);
+```
+
+**Alternative (more reliable):** Find and click the add button in the UI:
+```
+Look for button with aria-label containing "הוסף" and the product name in the page state, then click it.
+```
+
+4. Wait 3 seconds for the cart to sync.
+
+5. Verify by checking cart state:
+```javascript
+var cart = app.$store.getters['cart/getCart'];
+JSON.stringify({items: cart.items.length, price: cart.price});
+```
+
+6. Confirm to user: "Added [product name] to your Rami Levy cart. [N] items, total: [price]."
 
 ---
 
@@ -643,6 +785,68 @@ From search API responses, each product contains:
 
 ---
 
+### Rami Levy
+
+#### Platform
+
+Rami Levy runs on **Nuxt.js** (Vue SSR). Auth via JWT tokens with `ecomtoken` header.
+
+**Key constants:**
+- Default Store ID: `331`
+- API base: `https://www.rami-levy.co.il/api/v2`
+- API (external): `https://www-api.rami-levy.co.il/api/v2`
+
+#### API Endpoints
+
+| Endpoint | Method | Auth | Notes |
+|----------|--------|------|-------|
+| `/api/v2/cart` | POST | ecomtoken | Add to cart. Body: `{store, isClub, items: {productId: qty}}` |
+| `/api/v2/catalog/search` | GET | ecomtoken | Search. Params: `store`, `q`, `from`, `size` |
+
+#### Nuxt/Vue Access
+
+```javascript
+var app = document.querySelector('#__nuxt').__vue__;
+var store = app.$store;
+
+// Auth data
+store.state.authuser.user.token  // JWT token
+store.state.authuser.user.store_id  // user's store
+
+// Cart
+store.getters['cart/getCart']  // {items: [...], price: N}
+store.getters['cart/getStoreId']  // current store ID
+
+// Cart API
+app.$api.cart.addLineToCart(storeId, isClub, items, cancelToken, supplyAt, meta)
+// items format: [{C: productId, Quantity: qty}]
+
+// Search results (on search page)
+// Find the 'online-search' component in the Vue tree:
+function findComp(vm, name, depth) {
+  if(depth > 10) return null;
+  if(vm.$options.name === name) return vm;
+  for(var c of (vm.$children || [])) { var f = findComp(c, name, depth+1); if(f) return f; }
+  return null;
+}
+var search = findComp(app, 'online-search', 0);
+search.$data.results  // array of product objects
+```
+
+#### Product Data Structure
+
+From search results, each product:
+- `id` — unique product ID (use for cart)
+- `name` — Hebrew product name
+- `barcode` — product barcode
+- `price.price` — current price
+- `price.oldPrice` — previous price (if on sale)
+- `brand` — brand ID (numeric)
+- `size_unit_he` — size/weight in Hebrew
+- `images.small` / `images.original` — image URLs (relative, prefix with site domain)
+
+---
+
 ## Known Issues
 
 ### Shufersal
@@ -650,6 +854,12 @@ From search API responses, each product contains:
 - **List names**: Cannot contain `/`. Use hyphens for dates: DD-MM-YYYY.
 - **Hebrew in CLI args**: `browser-use type` doesn't handle Hebrew. Use `eval` with `document.getElementById().value = '...'` instead.
 - **Cart doesn't persist**: Items added to cart via browser automation are lost when the session closes. Always use wishlists.
+
+### Rami Levy
+- **Email + SMS OTP login**: Cannot be fully automated — user must provide the SMS code.
+- **Cart API timeouts**: The `/api/v2/cart` POST can return 504 Gateway Timeout under load. The UI button click approach is more reliable for adding items.
+- **Search results async**: Search results load asynchronously into the `online-search` Vue component. May need to wait and retry extraction.
+- **Hebrew in CLI args**: Same as Shufersal — use `eval` to set input values.
 
 ### Keshet Teamim
 - **SMS OTP login**: Cannot be fully automated — user must provide the SMS code.
@@ -672,7 +882,7 @@ From search API responses, each product contains:
 |--------|--------|----------|-------|--------|
 | Shufersal | shufersal.co.il | Custom (Vue.js) | Email + password | **Supported** |
 | Keshet Teamim | keshet-teamim.co.il | Prutah (AngularJS) | Phone + SMS OTP | **Supported** |
-| Rami Levy | rami-levy.co.il | — | — | Planned |
+| Rami Levy | rami-levy.co.il | Nuxt.js (Vue SSR) | Email + SMS OTP | **Supported** |
 | Yochananof | yochananof.co.il | — | — | Planned |
 | Victory | victory-online.co.il | — | — | Planned |
 
