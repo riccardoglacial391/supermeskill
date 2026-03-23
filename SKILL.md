@@ -1025,7 +1025,7 @@ Use the Keshet Teamim flow documentation, replacing retailer ID `1219` with `106
 | Tiv Taam | tivtaam.co.il | Prutah (AngularJS) | Email + password | **Supported** |
 | Yochananof | yochananof.co.il | — | — | Planned |
 | Victory | victory-online.co.il | — | — | Planned |
-| Hatzi Hinam | hatzihinam.co.il | — | — | Planned |
+| ~~Hatzi Hinam~~ | ~~hatzihinam.co.il~~ | — | — | **Blocked** (reCAPTCHA on login) |
 
 ## Error Handling
 

@@ -58,7 +58,7 @@ cp SKILL.md ~/.claude/skills/superme/
 | Keshet Teamim | Prutah (AngularJS) | Phone + SMS OTP | REST API | Angular service | — | **Supported** |
 | Yochananof | — | — | — | — | — | Planned |
 | Victory | — | — | — | — | — | Planned |
-| Hatzi Hinam | — | — | — | — | — | Planned |
+| ~~Hatzi Hinam~~ | — | — | — | — | — | Blocked (reCAPTCHA) |
 
 ## License
 
