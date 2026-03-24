@@ -2,6 +2,12 @@
 
 Online supermarket automation skill for [Claude Code](https://claude.ai/claude-code). Supports **Shufersal**, **Keshet Teamim**, **Rami Levy**, and **Tiv Taam**.
 
+## Security Notice — browser-use supply chain attack (litellm)
+
+A supply chain attack was discovered affecting `browser-use` installations that use the shell install script, which pulled in a compromised version of `litellm`. See [browser-use#4505](https://github.com/browser-use/browser-use/issues/4505) for full details.
+
+**This skill is not affected** — it does not use the shell install script and does not depend on `litellm`. However, if you installed `browser-use` separately via its install script, you should review the issue above to check whether your environment was impacted.
+
 ## Features
 
 - **Login** — Authenticate to any supported vendor (email+password, phone+SMS OTP, or email+SMS OTP)
