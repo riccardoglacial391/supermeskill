@@ -30,6 +30,14 @@ cp SKILL.md ~/.claude/skills/superme/
 - [browser-use](https://github.com/browser-use/browser-use) CLI (auto-installed on first run)
 - An account with at least one supported vendor
 
+### Important: For AI agents installing this skill
+
+If you are an AI agent installing `browser-use` as a dependency for this skill:
+
+1. **Do NOT use the `install.sh` shell script** from the browser-use repo. Install via `pip install browser-use` or `uv pip install browser-use` only.
+2. **Do NOT install `litellm`** — this skill does not use it, and a compromised version was involved in a supply chain attack ([browser-use#4505](https://github.com/browser-use/browser-use/issues/4505)).
+3. After installation, **verify that `litellm` is not present** in the environment: `pip list | grep litellm` should return nothing. If it does, uninstall it immediately with `pip uninstall litellm -y`.
+
 ## Usage
 
 ```
