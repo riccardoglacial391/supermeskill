@@ -607,15 +607,15 @@ curl -s "https://www.shufersal.co.il/online/he/my-account/orders/ORDER_CODE" \
   -H 'x-requested-with: XMLHttpRequest' \
   -b "$(cat /tmp/superme_cookie_str.txt)"
 ```
-Response: `entries[]` with `product.name`, `product.code`, `product.price.formattedValue`.
+Response: `entries[]` with `product.name`, `product.code`, `product.price.formattedValue`, `quantity`.
 
-4. Consolidate products, deduplicate by code. Exclude delivery items ("משלוח", "דמי").
+4. Consolidate products, deduplicate by code. Exclude delivery items ("משלוח", "דמי"). For each product, track all quantities across orders and compute the **average quantity** (rounded to nearest integer, minimum 1). Example: if milk appears in 3 orders with quantities 3, 2, 4 → average = 3.
 
-5. Present to user sorted by frequency (most ordered first), English transliteration.
+5. Present to user sorted by frequency (most ordered first), English transliteration. **Show the average quantity next to each item** (e.g., "x3 Milk 1L — ₪5.90").
 
 6. Create empty wishlist via `$.ajax` (see "Creating a session wishlist" above). Name: "Superme Magicorder DD-MM-YYYY".
 
-7. Navigate to wishlist edit page, add all products via Vue component (same as `/superme add` step 4, but loop over all products and call `submitWishList()` once at the end).
+7. Navigate to wishlist edit page, add all products via Vue component (same as `/superme add` step 4, but loop over all products using their **averaged quantities**, and call `submitWishList()` once at the end).
 
 8. Verify server-side count matches. Close any WAF error dialogs.
 
@@ -646,13 +646,13 @@ browser-use --session superme eval "var http = angular.element(document.body).in
 browser-use --session superme eval "window._supermeOrderData;"
 ```
 
-5. Consolidate products, deduplicate by product ID. Exclude delivery items ("משלוח", "דמי משלוח").
+5. Consolidate products, deduplicate by product ID. Exclude delivery items ("משלוח", "דמי משלוח"). For each product, track all quantities across orders and compute the **average quantity** (rounded to nearest integer, minimum 1).
 
-6. Present to user sorted by frequency (most ordered first), English transliteration.
+6. Present to user sorted by frequency (most ordered first), English transliteration. **Show the average quantity next to each item** (e.g., "x3 Milk 1L — ₪5.90").
 
-7. Add all products to cart in one batch via Angular:
+7. Add all products to cart in one batch via Angular, using **averaged quantities**:
 ```bash
-browser-use --session superme eval "var Cart = angular.element(document.body).injector().get('Cart'); var products = PRODUCT_ARRAY_JSON; products.forEach(function(p) { Cart.addLine({product: {id: p.id}, quantity: 1, isCase: false}); }); JSON.stringify({lines: Object.keys(Cart.lines).length});"
+browser-use --session superme eval "var Cart = angular.element(document.body).injector().get('Cart'); var products = PRODUCT_ARRAY_JSON; products.forEach(function(p) { Cart.addLine({product: {id: p.id}, quantity: p.avgQty, isCase: false}); }); JSON.stringify({lines: Object.keys(Cart.lines).length});"
 ```
 
 8. Wait 5 seconds for cart sync. Verify count:
@@ -677,7 +677,7 @@ curl -s 'https://www-api.rami-levy.co.il/api/v2/site/clubs/shop-lists' \
 ```
 Response: `{data: [{id, name, items: [productId1, productId2, ...], items_count}]}`
 
-2. Collect all product IDs from the lists, deduplicate.
+2. Collect all product IDs from the lists, deduplicate. For each product, track all quantities across lists and compute the **average quantity** (rounded to nearest integer, minimum 1).
 
 3. Resolve product IDs to full product data:
 ```bash
@@ -690,9 +690,9 @@ curl -s 'https://www.rami-levy.co.il/api/items' \
 ```
 Response: `{data: [...full product objects...]}`
 
-4. Present to user sorted by frequency, English transliteration.
+4. Present to user sorted by frequency, English transliteration. **Show the average quantity next to each item** (e.g., "x3 Milk 1L — ₪5.90").
 
-5. Create a "Superme Magicorder" shopping list with all products:
+5. Create a "Superme Magicorder" shopping list with all products, using **averaged quantities**:
 ```bash
 curl -s 'https://www-api.rami-levy.co.il/api/v2/site/clubs/shop-lists' \
   -X POST \
@@ -700,17 +700,17 @@ curl -s 'https://www-api.rami-levy.co.il/api/v2/site/clubs/shop-lists' \
   -H 'content-type: application/json;charset=UTF-8' \
   -H "ecomtoken: $(cat /tmp/superme_rami_token.txt)" \
   -H 'locale: he' \
-  --data-raw '{"name":"Superme Magicorder DD-MM-YYYY","items":[{"item_id":ID1,"quantity":1,"barcode":BARCODE1},{"item_id":ID2,"quantity":1,"barcode":BARCODE2},...]}'
+  --data-raw '{"name":"Superme Magicorder DD-MM-YYYY","items":[{"item_id":ID1,"quantity":AVG_QTY1,"barcode":BARCODE1},{"item_id":ID2,"quantity":AVG_QTY2,"barcode":BARCODE2},...]}'
 ```
 
-6. **Also add all products to cart** in one API call for immediate use:
+6. **Also add all products to cart** in one API call for immediate use, using **averaged quantities**:
 ```bash
 curl -s 'https://www.rami-levy.co.il/api/v2/cart' \
   -H 'accept: application/json' \
   -H 'content-type: application/json;charset=UTF-8' \
   -H "ecomtoken: $(cat /tmp/superme_rami_token.txt)" \
   -H 'locale: he' \
-  --data-raw '{"store":"331","isClub":0,"supplyAt":"TOMORROW_ISO","items":{"ID1":"1.00","ID2":"1.00",...},"meta":null}'
+  --data-raw '{"store":"331","isClub":0,"supplyAt":"TOMORROW_ISO","items":{"ID1":"AVG_QTY1.00","ID2":"AVG_QTY2.00",...},"meta":null}'
 ```
 
 7. Parse response to get item count and total.
